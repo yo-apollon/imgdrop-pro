@@ -15,9 +15,9 @@ import UserProfileModal from "@/components/auth/UserProfileModal";
 import PricingModal from "@/components/monetization/PricingModal";
 import { UploadOptions, UploadQueueItem, UploadedImageMetadata, UserAccount } from "@/types";
 import { saveToLocalHistory } from "@/lib/historyStore";
-import { getCurrentUser } from "@/lib/userStore";
+import { getCurrentUser, upgradeUserToPro, syncSupabaseSession } from "@/lib/userStore";
 import { nanoid } from "nanoid";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Sparkles, X } from "lucide-react";
 import { upload as vercelBlobUpload } from "@vercel/blob/client";
 
 export default function HomePage() {
@@ -29,11 +29,26 @@ export default function HomePage() {
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [showProSuccessBanner, setShowProSuccessBanner] = useState(false);
 
   useEffect(() => {
     const update = () => setCurrentUser(getCurrentUser());
     update();
     window.addEventListener("user-auth-changed", update);
+
+    // Check if user just returned from Stripe Checkout
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("checkout") === "success") {
+        upgradeUserToPro();
+        syncSupabaseSession().then(() => {
+          setCurrentUser(getCurrentUser());
+        });
+        setShowProSuccessBanner(true);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+
     return () => window.removeEventListener("user-auth-changed", update);
   }, []);
 
@@ -297,6 +312,31 @@ export default function HomePage() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 flex flex-col items-center">
         {activeTab === "upload" && (
           <div className="w-full max-w-4xl flex flex-col items-center gap-8">
+            {/* PRO Welcome Celebratory Banner */}
+            {showProSuccessBanner && (
+              <div className="w-full p-4 rounded-2xl bg-gradient-to-r from-brand-emerald/20 via-teal-500/20 to-brand-cyan/20 border border-brand-emerald/40 flex items-center justify-between gap-4 animate-fade-in shadow-xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-brand-emerald flex items-center justify-center text-dark-bg font-black shadow-md">
+                    <Sparkles className="w-5 h-5 text-dark-bg" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      Parabéns! Sua conta agora é ImgDrop PRO!
+                    </h4>
+                    <p className="text-xs text-dark-muted">
+                      Uploads de até 50MB liberados, links permanentes sem expiração e acesso prioritário à API com cURL.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowProSuccessBanner(false)}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-dark-card border border-dark-border text-dark-muted hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             {/* Hero Title */}
             <div className="text-center flex flex-col items-center max-w-2xl">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-dark-card border border-dark-border text-[11px] font-medium text-dark-muted mb-4 shadow-sm">
