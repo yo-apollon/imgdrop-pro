@@ -243,11 +243,11 @@ export default function HomePage() {
             <div className="text-center flex flex-col items-center max-w-2xl">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-dark-card border border-dark-border text-[11px] font-medium text-dark-muted mb-4 shadow-sm">
                 <span className="w-2 h-2 rounded-full bg-brand-emerald animate-pulse" />
-                <span>Hospedagem Rápida, Privativa e Pronta para Nuvem</span>
+                <span>ImgDrop Pro • Hospedagem Rápida, Privativa e Sem Anúncios</span>
               </div>
 
               <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-dark-text leading-[1.15]">
-                Converta Imagens em{" "}
+                Arraste & Solte para Gerar{" "}
                 <span className="bg-gradient-to-r from-brand-emerald via-teal-300 to-brand-cyan bg-clip-text text-transparent">
                   URLs Diretas
                 </span>{" "}
@@ -255,7 +255,7 @@ export default function HomePage() {
               </h1>
 
               <p className="text-sm sm:text-base text-dark-muted mt-3 max-w-xl">
-                Hospedagem direta com geração automática de links, Markdown, HTML, BBCode e QR Code. 100% gratuito, sem anúncios e com remoção de metadados para total privacidade.
+                Hospedagem em nuvem de alta performance com geração de links diretos, Markdown, HTML, BBCode e QR Code. Sem anúncios, com remoção de metadados EXIF e suporte a uploads em lote.
               </p>
 
               {/* Quick perks */}

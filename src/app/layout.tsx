@@ -21,11 +21,12 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "ImageToURL Pro - Conversor de Imagens em Links Diretos",
+  title: "ImgDrop Pro - Hospedagem Rápida & Conversor de Imagens em Links Diretos",
   description:
-    "Hospede imagens, converta para URLs diretas, gere links em Markdown, HTML, BBCode e QR Code instantaneamente. Sem anúncios, com remoção de EXIF e alta performance.",
+    "Arraste, solte e gere URLs diretas instantaneamente. Crie links em Markdown, HTML, BBCode e QR Code. 100% gratuito, sem anúncios, com remoção de EXIF e compatível com CDN global.",
   keywords: [
-    "image to url",
+    "imgdrop",
+    "image drop",
     "imagem para url",
     "hospedar imagem",
     "gerar link de imagem",
@@ -34,7 +35,7 @@ export const metadata: Metadata = {
     "html image",
     "free image hosting",
   ],
-  authors: [{ name: "ImageToURL Pro" }],
+  authors: [{ name: "ImgDrop Pro" }],
 };
 
 export default function RootLayout({

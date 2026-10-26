@@ -14,12 +14,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   if (!image) {
     return {
-      title: "Imagem não encontrada - ImageToURL Pro",
+      title: "Imagem não encontrada - ImgDrop Pro",
     };
   }
 
   return {
-    title: `${image.filename} (${image.width}x${image.height}) - ImageToURL Pro`,
+    title: `${image.filename} (${image.width}x${image.height}) - ImgDrop Pro`,
     description: `Hospedagem rápida de imagem: ${image.filename} - ${formatBytes(image.size)}`,
     openGraph: {
       images: [image.url],

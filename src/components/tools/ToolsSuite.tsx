@@ -506,7 +506,7 @@ export default function ToolsSuite() {
                   <div>
                     <span className="text-xs font-semibold text-dark-text">Diagnóstico de Privacidade</span>
                     <p className="text-xs text-dark-muted mt-1">
-                      No ImageToURL Pro, todos os uploads normais têm os metadados EXIF e geolocalização removidos por padrão para sua segurança.
+                      No ImgDrop Pro, todos os uploads normais têm os metadados EXIF e geolocalização removidos por padrão para sua segurança.
                     </p>
                   </div>
 

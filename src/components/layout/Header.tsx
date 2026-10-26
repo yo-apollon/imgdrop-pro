@@ -58,7 +58,7 @@ export default function Header({
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-base tracking-tight text-dark-text group-hover:text-brand-emeraldLight transition-colors">
-                ImageToURL
+                ImgDrop
               </span>
               <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/20">
                 PRO

@@ -43,7 +43,7 @@ export default function PricingModal({ isOpen, onClose, onUpgradeSuccess }: Prop
         <div className="text-center flex flex-col items-center">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-emerald/10 border border-brand-emerald/20 text-brand-emerald text-xs font-semibold mb-3">
             <Zap className="w-3.5 h-3.5" />
-            <span>ImageToURL PRO</span>
+            <span>ImgDrop PRO</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-dark-text tracking-tight">
             Desbloqueie Todo o Poder de Hospedagem

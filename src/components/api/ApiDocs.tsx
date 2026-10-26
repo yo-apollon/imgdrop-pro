@@ -103,7 +103,7 @@ print("Markdown:", result["markdown"])`;
           <span>REST API v1 para Desenvolvedores</span>
         </div>
         <h2 className="text-2xl font-bold text-dark-text tracking-tight">
-          Integre o ImageToURL em seus Bots, Scripts e Apps
+          Integre o ImgDrop em seus Bots, Scripts e Apps
         </h2>
         <p className="text-sm text-dark-muted max-w-lg mt-2">
           Envie imagens diretamente pelo terminal, automatize uploads em Discord bots, Discord webhooks, CI/CD pipelines ou formulários sem complicações.

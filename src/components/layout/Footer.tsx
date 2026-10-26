@@ -65,7 +65,7 @@ export default function Footer() {
           </div>
 
           <div className="text-dark-dimmed text-[11px] flex items-center gap-4">
-            <span>© {new Date().getFullYear()} ImageToURL Pro. Todos os direitos reservados.</span>
+            <span>© {new Date().getFullYear()} ImgDrop Pro. Todos os direitos reservados.</span>
             <span className="text-brand-emerald font-medium">100% Livre de Anúncios</span>
           </div>
         </div>

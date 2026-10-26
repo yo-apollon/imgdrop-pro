@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ImageToURL/1.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ImgDrop/1.0",
       },
     });
     clearTimeout(timeout);
