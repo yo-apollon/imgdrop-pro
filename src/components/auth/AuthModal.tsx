@@ -38,13 +38,29 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: Props) {
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
 
+  const handleDemoLogin = () => {
+    const demoUser = {
+      id: "usr_demo_" + Math.random().toString(36).substring(2, 9),
+      email: email.trim() || "demo@imgdrop.pro",
+      name: fullName.trim() || email.split("@")[0] || "Usuário Demo",
+      plan: "free" as const,
+      apiKey: "itu_live_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
+      createdAt: new Date().toISOString(),
+      totalUploads: 0,
+      storageUsedBytes: 0,
+    };
+    saveUserSession(demoUser);
+    onLoginSuccess();
+    onClose();
+  };
+
   const handleOAuthLogin = async (provider: "google" | "github") => {
     setErrorMessage(null);
     setSuccessMessage(null);
 
     if (!supabase) {
       setErrorMessage(
-        "Supabase não configurado. Adicione NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY no painel da Vercel."
+        "Supabase não configurado no painel da Vercel. Você pode usar o botão abaixo para testar em Modo Demonstração."
       );
       return;
     }
@@ -77,9 +93,11 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: Props) {
     setSuccessMessage(null);
 
     if (!supabase) {
-      setErrorMessage(
-        "Supabase não configurado. Adicione as chaves no painel da Vercel."
-      );
+      if (!email.trim()) {
+        setErrorMessage("Informe seu e-mail para prosseguir.");
+        return;
+      }
+      handleDemoLogin();
       return;
     }
 
@@ -315,8 +333,17 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: Props) {
 
         {/* Error / Success alerts */}
         {errorMessage && (
-          <div className="p-3 rounded-xl bg-brand-rose/10 border border-brand-rose/30 text-xs text-brand-rose">
-            {errorMessage}
+          <div className="p-3 rounded-xl bg-brand-rose/10 border border-brand-rose/30 text-xs text-brand-rose flex flex-col gap-2">
+            <div>{errorMessage}</div>
+            {!isSupabaseConfigured && (
+              <button
+                type="button"
+                onClick={handleDemoLogin}
+                className="self-start text-[11px] underline text-brand-emerald hover:text-brand-emeraldLight font-semibold"
+              >
+                Clique aqui para entrar em Modo Demonstração (Sem Supabase) →
+              </button>
+            )}
           </div>
         )}
 
@@ -379,7 +406,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: Props) {
 
             <button
               type="submit"
-              disabled={isSubmitting || !email.trim() || !password.trim()}
+              disabled={isSubmitting || !email.trim()}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-brand-emerald hover:bg-brand-emeraldLight disabled:opacity-50 text-dark-bg text-xs font-semibold transition-all shadow-md mt-1"
             >
               <span>
@@ -392,6 +419,17 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: Props) {
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </form>
+        )}
+
+        {!isSupabaseConfigured && (
+          <button
+            type="button"
+            onClick={handleDemoLogin}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-dark-surface hover:bg-dark-hover border border-dark-border text-dark-text hover:text-brand-emerald text-xs font-semibold transition-all shadow-sm"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-brand-emerald" />
+            <span>Entrar em Modo Demonstração / Teste</span>
+          </button>
         )}
 
         <div className="bg-dark-surface/60 border border-dark-border/40 rounded-xl p-2.5 flex items-center justify-between text-[11px] text-dark-muted">
