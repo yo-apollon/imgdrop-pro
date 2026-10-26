@@ -10,24 +10,18 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     cleanExpiredImages();
 
-    // Look for any Vercel Blob token (standard BLOB_READ_WRITE_TOKEN or any prefixed one)
-    const tokenKey = Object.keys(process.env).find((k) => k.endsWith("READ_WRITE_TOKEN"));
-    const blobToken = tokenKey ? process.env[tokenKey] : undefined;
-
-    if (!blobToken) {
-      return NextResponse.json(
-        {
-          error:
-            "Vercel Blob token não encontrado nas variáveis de ambiente. Verifique em Settings -> Environment Variables na Vercel.",
-        },
-        { status: 503 }
-      );
-    }
+    // Vercel Blob uses OIDC (BLOB_STORE_ID / VERCEL_OIDC_TOKEN) automatically on Vercel,
+    // or BLOB_READ_WRITE_TOKEN if provided.
+    const token =
+      process.env.BLOB_READ_WRITE_TOKEN ||
+      (Object.keys(process.env).find((k) => k.endsWith("READ_WRITE_TOKEN"))
+        ? process.env[Object.keys(process.env).find((k) => k.endsWith("READ_WRITE_TOKEN"))!]
+        : undefined);
 
     const jsonResponse = await handleUpload({
       body,
       request,
-      token: blobToken,
+      ...(token ? { token } : {}),
       onBeforeGenerateToken: async (pathname) => {
         return {
           allowedContentTypes: [

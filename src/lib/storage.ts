@@ -24,7 +24,12 @@ function getBlobToken(): string | undefined {
 
 // Detect active storage provider
 export function getActiveStorageProvider(): "vercel-blob" | "r2" | "local" {
-  if (getBlobToken()) {
+  if (
+    process.env.BLOB_READ_WRITE_TOKEN ||
+    process.env.BLOB_STORE_ID ||
+    process.env.VERCEL_OIDC_TOKEN ||
+    process.env.VERCEL
+  ) {
     return "vercel-blob";
   }
   if (
@@ -124,10 +129,11 @@ export async function saveUploadedFile(
   const viewUrl = `/i/${id}`;
 
   if (provider === "vercel-blob") {
-    // 1. VERCEL BLOB STORAGE
+    // 1. VERCEL BLOB STORAGE (OIDC or Token)
+    const token = getBlobToken();
     const blob = await vercelBlobPut(`uploads/${storedFilename}`, buffer, {
       access: "public",
-      token: getBlobToken(),
+      ...(token ? { token } : {}),
       contentType: metaPartial.mimeType,
       addRandomSuffix: false,
     });
