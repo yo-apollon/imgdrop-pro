@@ -33,6 +33,7 @@ export default function UserProfileModal({
   const [apiKey, setApiKey] = useState(user.apiKey);
   const [copiedKey, setCopiedKey] = useState(false);
   const [showKey, setShowKey] = useState(false);
+  const [isOpeningPortal, setIsOpeningPortal] = useState(false);
 
   if (!isOpen) return null;
 
@@ -41,6 +42,27 @@ export default function UserProfileModal({
     if (ok) {
       setCopiedKey(true);
       setTimeout(() => setCopiedKey(false), 2000);
+    }
+  };
+
+  const handleOpenPortal = async () => {
+    setIsOpeningPortal(true);
+    try {
+      const res = await fetch("/api/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || "Portal de assinatura disponível via Stripe.");
+      }
+    } catch {
+      alert("Erro ao conectar ao portal Stripe.");
+    } finally {
+      setIsOpeningPortal(false);
     }
   };
 
@@ -115,6 +137,29 @@ export default function UserProfileModal({
               className="px-3 py-1.5 rounded-xl bg-brand-emerald hover:bg-brand-emeraldLight text-dark-bg text-xs font-bold transition-all shadow-md shrink-0"
             >
               Ver Planos
+            </button>
+          </div>
+        )}
+
+        {/* Manage Subscription if on PRO plan */}
+        {user.plan === "pro" && (
+          <div className="p-4 rounded-2xl bg-brand-emerald/10 border border-brand-emerald/25 flex items-center justify-between gap-3">
+            <div>
+              <h4 className="text-xs font-semibold text-brand-emerald flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 fill-current" />
+                Assinatura PRO Ativa
+              </h4>
+              <p className="text-[11px] text-dark-muted mt-0.5">
+                Uploads de até 50MB liberados e armazenamento vitalício.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenPortal}
+              disabled={isOpeningPortal}
+              className="px-3 py-1.5 rounded-xl bg-dark-surface hover:bg-dark-card border border-brand-emerald/30 text-brand-emerald text-xs font-semibold transition-all shadow-sm shrink-0"
+            >
+              {isOpeningPortal ? "Abrindo..." : "Gerenciar Assinatura"}
             </button>
           </div>
         )}

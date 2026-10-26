@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   avatar_url TEXT,
   api_key TEXT UNIQUE NOT NULL,
   plan TEXT DEFAULT 'free' CHECK (plan IN ('free', 'pro')),
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
+  subscription_status TEXT DEFAULT 'inactive',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

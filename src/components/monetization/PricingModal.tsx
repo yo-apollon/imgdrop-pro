@@ -1,22 +1,84 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Check, Zap, Sparkles, Shield, ArrowRight, QrCode, CreditCard, Lock } from "lucide-react";
+import {
+  X,
+  Check,
+  Zap,
+  Sparkles,
+  Shield,
+  ArrowRight,
+  QrCode,
+  CreditCard,
+  Lock,
+  AlertCircle,
+  ExternalLink,
+} from "lucide-react";
 import { upgradeUserToPro, getCurrentUser } from "@/lib/userStore";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onUpgradeSuccess: () => void;
+  onOpenAuth?: () => void;
 }
 
-export default function PricingModal({ isOpen, onClose, onUpgradeSuccess }: Props) {
+export default function PricingModal({
+  isOpen,
+  onClose,
+  onUpgradeSuccess,
+  onOpenAuth,
+}: Props) {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
-  const [selectedPayment, setSelectedPayment] = useState<"pix" | "card">("pix");
+  const [selectedPayment, setSelectedPayment] = useState<"pix" | "card">("card");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showPixQr, setShowPixQr] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showDevFallback, setShowDevFallback] = useState(false);
 
   if (!isOpen) return null;
+
+  const currentUser = getCurrentUser();
+
+  const handleCheckout = async () => {
+    setIsProcessing(true);
+    setErrorMessage(null);
+    setShowDevFallback(false);
+
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          billingCycle,
+          currency: "brl",
+          paymentMethod: selectedPayment,
+          userId: currentUser?.id,
+          userEmail: currentUser?.email,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.url) {
+        // Redirect to real Stripe Checkout (Supports Cards, Apple Pay, Google Pay, PIX)
+        window.location.href = data.url;
+        return;
+      }
+
+      if (data.isConfigured === false || res.status === 400) {
+        setErrorMessage(data.error);
+        setShowDevFallback(true);
+      } else {
+        setErrorMessage(data.error || "Erro ao iniciar sessão de pagamento.");
+      }
+    } catch (err: any) {
+      console.error("Checkout error:", err);
+      setErrorMessage("Não foi possível conectar ao gateway de pagamentos.");
+      setShowDevFallback(true);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleSimulatedUpgrade = () => {
     setIsProcessing(true);
@@ -25,7 +87,7 @@ export default function PricingModal({ isOpen, onClose, onUpgradeSuccess }: Prop
       setIsProcessing(false);
       onUpgradeSuccess();
       onClose();
-    }, 1200);
+    }, 800);
   };
 
   return (
@@ -118,7 +180,7 @@ export default function PricingModal({ isOpen, onClose, onUpgradeSuccess }: Prop
             </div>
 
             <div className="text-center py-2 text-xs text-dark-dimmed font-medium">
-              Plano Atual
+              {currentUser?.plan === "pro" ? "Plano Anterior" : "Plano Atual"}
             </div>
           </div>
 
@@ -138,7 +200,9 @@ export default function PricingModal({ isOpen, onClose, onUpgradeSuccess }: Prop
                 <span className="text-xs text-dark-muted font-normal">/ mês</span>
               </div>
               <p className="text-[11px] text-dark-muted mt-1">
-                {billingCycle === "yearly" ? "Cobrado anualmente (R$ 199,00)" : "Cancele a qualquer momento"}
+                {billingCycle === "yearly"
+                  ? "Cobrado anualmente (R$ 199,00)"
+                  : "Cancele a qualquer momento"}
               </p>
 
               <ul className="mt-4 space-y-2 text-xs text-dark-text">
@@ -165,9 +229,29 @@ export default function PricingModal({ isOpen, onClose, onUpgradeSuccess }: Prop
               </ul>
             </div>
 
+            {/* Error notice */}
+            {errorMessage && (
+              <div className="p-3 rounded-xl bg-brand-cyan/10 border border-brand-cyan/30 text-[11px] text-brand-cyan">
+                {errorMessage}
+              </div>
+            )}
+
             {/* Payment Method selector */}
             <div className="flex flex-col gap-2 pt-2 border-t border-dark-border/60">
               <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPayment("card")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    selectedPayment === "card"
+                      ? "bg-brand-emerald/20 text-brand-emerald border border-brand-emerald/40"
+                      : "bg-dark-card text-dark-muted border border-dark-border"
+                  }`}
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Cartão & Apple/Google Pay</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setSelectedPayment("pix")}
@@ -180,36 +264,34 @@ export default function PricingModal({ isOpen, onClose, onUpgradeSuccess }: Prop
                   <QrCode className="w-3.5 h-3.5" />
                   <span>PIX Instantâneo</span>
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSelectedPayment("card")}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    selectedPayment === "card"
-                      ? "bg-brand-emerald/20 text-brand-emerald border border-brand-emerald/40"
-                      : "bg-dark-card text-dark-muted border border-dark-border"
-                  }`}
-                >
-                  <CreditCard className="w-3.5 h-3.5" />
-                  <span>Cartão</span>
-                </button>
               </div>
 
               <button
                 type="button"
-                onClick={handleSimulatedUpgrade}
+                onClick={handleCheckout}
                 disabled={isProcessing}
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-emerald to-emerald-500 hover:from-brand-emeraldLight hover:to-emerald-400 text-dark-bg font-bold text-xs transition-all shadow-lg shadow-brand-emerald/20 hover:shadow-brand-emerald/40 cursor-pointer flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-emerald to-emerald-500 hover:from-brand-emeraldLight hover:to-emerald-400 text-dark-bg font-bold text-xs transition-all shadow-lg shadow-brand-emerald/20 hover:shadow-brand-emerald/40 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isProcessing ? (
-                  <span>Ativando Plano PRO...</span>
+                  <span>Conectando ao Checkout Seguro...</span>
                 ) : (
                   <>
-                    <span>Assinar PRO Agora</span>
+                    <span>Ir para Checkout Seguro</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </>
                 )}
               </button>
+
+              {/* Dev mode simulation button if Stripe keys not yet entered */}
+              {showDevFallback && (
+                <button
+                  type="button"
+                  onClick={handleSimulatedUpgrade}
+                  className="w-full py-1.5 rounded-xl bg-dark-card hover:bg-dark-surface border border-dark-border text-dark-muted hover:text-dark-text text-[11px] font-medium transition-all"
+                >
+                  ⚡ Ativar PRO em Modo Demonstração (Sem Chaves)
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -217,7 +299,7 @@ export default function PricingModal({ isOpen, onClose, onUpgradeSuccess }: Prop
         {/* Security pledge */}
         <div className="flex items-center justify-center gap-2 text-[11px] text-dark-dimmed">
           <Lock className="w-3.5 h-3.5 text-brand-emerald" />
-          <span>Pagamento 100% seguro via Stripe e Mercado Pago / PIX</span>
+          <span>Checkout criptografado com certificação PCI-DSS Level 1 via Stripe</span>
         </div>
       </div>
     </div>

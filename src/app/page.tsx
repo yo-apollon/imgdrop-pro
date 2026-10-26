@@ -395,6 +395,7 @@ export default function HomePage() {
       <PricingModal
         isOpen={isPricingModalOpen}
         onClose={() => setIsPricingModalOpen(false)}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
         onUpgradeSuccess={() => {
           setCurrentUser(getCurrentUser());
         }}
