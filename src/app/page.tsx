@@ -103,8 +103,9 @@ export default function HomePage() {
           const regData = await regRes.json();
           result = regData.image;
         } catch (blobErr: any) {
+          console.error("Direct upload error:", blobErr);
           throw new Error(
-            `Arquivo de ${(item.file.size / 1024 / 1024).toFixed(1)}MB excede o limite serverless padrão da Vercel (4.5MB). Para uploads de até 32MB, ative o Vercel Blob no painel da Vercel (Aba Storage -> Create Blob -> Connect).`
+            blobErr?.message || `Falha no upload direto: ${(item.file.size / 1024 / 1024).toFixed(1)}MB.`
           );
         }
       } else {

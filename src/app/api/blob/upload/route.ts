@@ -10,9 +10,16 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     cleanExpiredImages();
 
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    // Look for any Vercel Blob token (standard BLOB_READ_WRITE_TOKEN or any prefixed one)
+    const tokenKey = Object.keys(process.env).find((k) => k.endsWith("READ_WRITE_TOKEN"));
+    const blobToken = tokenKey ? process.env[tokenKey] : undefined;
+
+    if (!blobToken) {
       return NextResponse.json(
-        { error: "Vercel Blob não está configurado. Conecte o Blob na aba Storage da Vercel." },
+        {
+          error:
+            "Vercel Blob token não encontrado nas variáveis de ambiente. Verifique em Settings -> Environment Variables na Vercel.",
+        },
         { status: 503 }
       );
     }
@@ -20,6 +27,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const jsonResponse = await handleUpload({
       body,
       request,
+      token: blobToken,
       onBeforeGenerateToken: async (pathname) => {
         return {
           allowedContentTypes: [
@@ -32,7 +40,7 @@ export async function POST(request: Request): Promise<NextResponse> {
             "image/x-icon",
             "image/bmp",
           ],
-          maximumSizeInBytes: 32 * 1024 * 1024, // 32MB
+          maximumSizeInBytes: 50 * 1024 * 1024, // 50MB
           tokenPayload: JSON.stringify({ pathname }),
         };
       },
@@ -43,6 +51,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     return NextResponse.json(jsonResponse);
   } catch (error: any) {
+    console.error("Blob upload handler error:", error);
     return NextResponse.json(
       { error: error?.message || "Erro no upload do Vercel Blob" },
       { status: 400 }

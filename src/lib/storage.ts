@@ -16,9 +16,15 @@ const METADATA_FILE = path.join(DATA_DIR, "metadata.json");
 // In-memory cache for metadata when running on read-only serverless
 const memoryStore = new Map<string, UploadedImageMetadata>();
 
+// Helper to get any available Vercel Blob token
+function getBlobToken(): string | undefined {
+  const tokenKey = Object.keys(process.env).find((k) => k.endsWith("READ_WRITE_TOKEN"));
+  return tokenKey ? process.env[tokenKey] : undefined;
+}
+
 // Detect active storage provider
 export function getActiveStorageProvider(): "vercel-blob" | "r2" | "local" {
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
+  if (getBlobToken()) {
     return "vercel-blob";
   }
   if (
@@ -121,6 +127,7 @@ export async function saveUploadedFile(
     // 1. VERCEL BLOB STORAGE
     const blob = await vercelBlobPut(`uploads/${storedFilename}`, buffer, {
       access: "public",
+      token: getBlobToken(),
       contentType: metaPartial.mimeType,
       addRandomSuffix: false,
     });
