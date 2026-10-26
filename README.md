@@ -53,8 +53,30 @@ npm install
 # Modo de desenvolvimento
 npm run dev
 
-# Ou modo de produção
+# Executar bateria de testes E2E
+npm run test:e2e
+
+# Build de produção
 npm run build
 npm run start
 ```
 Acesse `http://localhost:3000` no seu navegador.
+
+---
+
+## 🔐 Variáveis de Ambiente (.env.local / Vercel)
+
+```env
+# Vercel Blob Storage (Uploads diretos até 50MB)
+BLOB_READ_WRITE_TOKEN="vercel_blob_rw_..."
+
+# Supabase Auth & PostgreSQL
+NEXT_PUBLIC_SUPABASE_URL="https://xxxx.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOi..."
+
+# Stripe Billing (Global & PIX)
+STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+STRIPE_PRO_MONTHLY_PRICE_ID="price_..."
+STRIPE_PRO_YEARLY_PRICE_ID="price_..."
+```
