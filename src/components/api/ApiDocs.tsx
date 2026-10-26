@@ -7,16 +7,23 @@ import { copyToClipboard } from "@/lib/utils";
 export default function ApiDocs() {
   const [activeLang, setActiveLang] = useState<"curl" | "js" | "python">("curl");
   const [copiedLang, setCopiedLang] = useState<string | null>(null);
+  const [originUrl, setOriginUrl] = useState("https://imgdrop-pro.vercel.app");
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setOriginUrl(window.location.origin);
+    }
+  }, []);
 
   const curlSnippet = `# 1. Upload de Imagem local via cURL
-curl -X POST https://seudominio.com/api/upload \\
+curl -X POST ${originUrl}/api/upload \\
   -F "file=@/caminho/minha-foto.png" \\
   -F "expiration=24h" \\
   -F "outputFormat=webp" \\
   -F "stripExif=true"
 
 # 2. Upload a partir de uma URL remota
-curl -X POST https://seudominio.com/api/fetch-url \\
+curl -X POST ${originUrl}/api/fetch-url \\
   -H "Content-Type: application/json" \\
   -d '{"url": "https://exemplo.com/foto.jpg", "expiration": "7d"}'`;
 
@@ -27,7 +34,7 @@ formData.append("expiration", "24h"); // "never", "1h", "24h", "7d", "30d"
 formData.append("outputFormat", "webp");
 formData.append("stripExif", "true");
 
-const response = await fetch("https://seudominio.com/api/upload", {
+const response = await fetch("${originUrl}/api/upload", {
   method: "POST",
   body: formData,
 });
@@ -40,7 +47,7 @@ console.log("Página de Visualização:", data.image.viewUrl);`;
   const pythonSnippet = `# 1. Upload de arquivo usando requests
 import requests
 
-url = "https://seudominio.com/api/upload"
+url = "${originUrl}/api/upload"
 files = {"file": open("foto.jpg", "rb")}
 data = {
     "expiration": "24h",
@@ -67,13 +74,13 @@ print("Markdown:", result["markdown"])`;
     "height": 1080,
     "createdAt": "2026-10-26T14:30:00.000Z",
     "expiresAt": "2026-10-27T14:30:00.000Z",
-    "url": "https://seudominio.com/uploads/8kF2qZxY.webp",
-    "viewUrl": "https://seudominio.com/i/8kF2qZxY",
+    "url": "${originUrl}/uploads/8kF2qZxY.webp",
+    "viewUrl": "${originUrl}/i/8kF2qZxY",
     "deleteToken": "sec_7a9f...28b"
   },
-  "markdown": "![screenshot.png](https://seudominio.com/uploads/8kF2qZxY.webp)",
-  "html": "<img src=\\"https://seudominio.com/uploads/8kF2qZxY.webp\\" alt=\\"screenshot.png\\" />",
-  "bbcode": "[img]https://seudominio.com/uploads/8kF2qZxY.webp[/img]"
+  "markdown": "![screenshot.png](${originUrl}/uploads/8kF2qZxY.webp)",
+  "html": "<img src=\\"${originUrl}/uploads/8kF2qZxY.webp\\" alt=\\"screenshot.png\\" />",
+  "bbcode": "[img]${originUrl}/uploads/8kF2qZxY.webp[/img]"
 }`;
 
   const handleCopy = async (id: string, text: string) => {
