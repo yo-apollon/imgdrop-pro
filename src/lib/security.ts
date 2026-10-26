@@ -1,13 +1,41 @@
-import DOMPurify from "isomorphic-dompurify";
-
-// 1. SVG Sanitization to eliminate Stored XSS
+// 1. SVG Sanitization to eliminate Stored XSS without heavy jsdom/ESM dependencies
 export function sanitizeSvg(svgContent: string): string {
-  return DOMPurify.sanitize(svgContent, {
-    USE_PROFILES: { svg: true, svgFilters: true },
-    ADD_TAGS: ["svg", "path", "g", "circle", "rect", "line", "polyline", "polygon", "text", "defs", "linearGradient", "radialGradient", "stop", "clipPath", "mask", "filter", "feDropShadow", "feGaussianBlur"],
-    FORBID_TAGS: ["script", "iframe", "object", "embed", "link", "form", "input"],
-    FORBID_ATTR: ["onload", "onerror", "onclick", "onmouseover", "onfocus", "onblur", "javascript:"],
-  });
+  let clean = svgContent;
+
+  // Remove XML/HTML comments that might mask exploits
+  clean = clean.replace(/<!--[\s\S]*?-->/gi, "");
+
+  // Remove <script> tags and any contents
+  clean = clean.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script\s*>/gi, "");
+
+  // Remove dangerous tags
+  const forbiddenTags = [
+    "script",
+    "iframe",
+    "object",
+    "embed",
+    "link",
+    "form",
+    "input",
+    "base",
+    "meta",
+    "applet",
+  ];
+
+  for (const tag of forbiddenTags) {
+    const blockReg = new RegExp(`<\\s*${tag}\\b[^>]*>[\\s\\S]*?<\\/\\s*${tag}\\s*>`, "gi");
+    clean = clean.replace(blockReg, "");
+    const singleReg = new RegExp(`<\\s*${tag}\\b[^>]*\\/?>`, "gi");
+    clean = clean.replace(singleReg, "");
+  }
+
+  // Remove all inline DOM event handlers (e.g. onload, onerror, onclick, onmouseover)
+  clean = clean.replace(/\s+on[a-zA-Z]+\s*=\s*(?:["'][^"']*["']|[^\s>]+)/gi, "");
+
+  // Remove javascript: and data: schemes inside href, xlink:href, or action
+  clean = clean.replace(/(?:href|xlink:href|action)\s*=\s*["']\s*(?:javascript|data):[^"']*["']/gi, "");
+
+  return clean;
 }
 
 // 2. SSRF Blocker: Prevent requests to local addresses or cloud metadata IPs
