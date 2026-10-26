@@ -44,6 +44,8 @@ export default function ToolsSuite() {
   const [compressedDims, setCompressedDims] = useState<{ width: number; height: number } | null>(null);
   const [quality, setQuality] = useState<number>(80);
   const [sliderPos, setSliderPos] = useState<number>(50); // 0 to 100%
+  const [isDraggingSplit, setIsDraggingSplit] = useState(false);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [compressError, setCompressError] = useState<string | null>(null);
   const [targetCompressFormat, setTargetCompressFormat] = useState<"webp" | "jpeg" | "png">("webp");
@@ -56,6 +58,35 @@ export default function ToolsSuite() {
   // Debounce timer ref
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const currentBlobUrlRef = useRef<string | null>(null);
+
+  // Interactive split-slider pointer dragging handlers (Mouse & Touch)
+  const updateSplitPosition = useCallback((clientX: number) => {
+    if (!splitContainerRef.current) return;
+    const rect = splitContainerRef.current.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    setSliderPos(Math.round(percent * 10) / 10);
+  }, []);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    setIsDraggingSplit(true);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+    updateSplitPosition(e.clientX);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingSplit && e.buttons !== 1) return;
+    updateSplitPosition(e.clientX);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    setIsDraggingSplit(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+  };
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
@@ -464,8 +495,15 @@ export default function ToolsSuite() {
                 </div>
               )}
 
-              {/* Before vs After Interactive Split View */}
-              <div className="relative w-full h-[380px] sm:h-[460px] rounded-2xl overflow-hidden border border-dark-border select-none bg-dark-surface flex items-center justify-center">
+              {/* Before vs After Interactive Split View (Real-time Pointer & Touch Draggable) */}
+              <div
+                ref={splitContainerRef}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+                className="relative w-full h-[380px] sm:h-[480px] rounded-2xl overflow-hidden border border-dark-border select-none bg-dark-surface flex items-center justify-center cursor-ew-resize touch-none shadow-inner"
+              >
                 {originalPreview && compressedBlobUrl ? (
                   <>
                     {/* Before Image (Left / Full base) */}
@@ -485,43 +523,37 @@ export default function ToolsSuite() {
                       <img
                         src={compressedBlobUrl}
                         alt="Otimizada"
-                        className="absolute inset-0 w-full h-full object-contain"
+                        className="absolute inset-0 w-full h-full object-contain pointer-events-none"
                       />
                     </div>
 
                     {/* Divider line & handle */}
                     <div
-                      className="absolute top-0 bottom-0 w-1 bg-brand-emerald shadow-[0_0_12px_rgba(16,185,129,0.8)] cursor-ew-resize z-20 flex items-center justify-center"
+                      className="absolute top-0 bottom-0 w-0.5 bg-brand-emerald shadow-[0_0_15px_rgba(16,185,129,0.95)] z-20 flex items-center justify-center pointer-events-none"
                       style={{ left: `${sliderPos}%` }}
                     >
-                      <div className="w-7 h-7 rounded-full bg-brand-emerald text-dark-bg flex items-center justify-center shadow-lg -translate-x-0.5 border-2 border-white/80">
-                        <SlidersHorizontal className="w-3.5 h-3.5" />
+                      <div
+                        className={`w-8 h-8 rounded-full bg-brand-emerald text-dark-bg flex items-center justify-center shadow-2xl border-2 border-white transition-all ${
+                          isDraggingSplit ? "scale-125 ring-4 ring-brand-emerald/50" : "scale-100"
+                        }`}
+                      >
+                        <SlidersHorizontal className="w-4 h-4" />
                       </div>
                     </div>
 
-                    {/* Hidden interactive slider for scrubbing */}
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={sliderPos}
-                      onChange={(e) => setSliderPos(parseInt(e.target.value, 10))}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-30"
-                    />
-
                     {/* Floating Badges */}
-                    <div className="absolute top-4 left-4 z-10 px-3 py-1.5 rounded-lg bg-dark-bg/90 backdrop-blur text-xs font-mono text-dark-text border border-dark-border shadow-md">
+                    <div className="absolute top-4 left-4 z-10 px-3 py-1.5 rounded-lg bg-dark-bg/90 backdrop-blur text-xs font-mono text-dark-text border border-dark-border shadow-md pointer-events-none">
                       Original: <span className="text-white font-bold">{formatBytes(compressFile.size)}</span>
                     </div>
 
-                    <div className="absolute top-4 right-4 z-10 px-3 py-1.5 rounded-lg bg-brand-emerald text-xs font-mono font-bold text-dark-bg shadow-lg flex items-center gap-1.5">
+                    <div className="absolute top-4 right-4 z-10 px-3 py-1.5 rounded-lg bg-brand-emerald text-xs font-mono font-bold text-dark-bg shadow-lg flex items-center gap-1.5 pointer-events-none">
                       {isProcessing && <RefreshCw className="w-3 h-3 animate-spin" />}
                       <span>Otimizada: {formatBytes(compressedSize)}</span>
                     </div>
 
                     {/* Hint text at bottom */}
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-dark-bg/80 backdrop-blur border border-dark-border/50 text-[11px] text-dark-muted pointer-events-none">
-                      Arraste o divisor para comparar antes e depois
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-dark-bg/85 backdrop-blur border border-dark-border/50 text-[11px] text-dark-muted pointer-events-none shadow-md">
+                      Arraste ou clique em qualquer lugar para comparar
                     </div>
                   </>
                 ) : (
