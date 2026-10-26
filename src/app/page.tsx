@@ -18,6 +18,7 @@ import { saveToLocalHistory } from "@/lib/historyStore";
 import { getCurrentUser } from "@/lib/userStore";
 import { nanoid } from "nanoid";
 import { CheckCircle2 } from "lucide-react";
+import { upload as vercelBlobUpload } from "@vercel/blob/client";
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"upload" | "tools" | "api" | "history">("upload");
@@ -76,33 +77,77 @@ export default function HomePage() {
     );
 
     try {
-      const formData = new FormData();
-      formData.append("file", item.file);
-      formData.append("expiration", opts.expiration);
-      formData.append("outputFormat", opts.outputFormat);
-      formData.append("stripExif", String(opts.stripExif));
-      if (opts.maxDimension) {
-        formData.append("maxDimension", String(opts.maxDimension));
-      }
-      if (opts.quality) {
-        formData.append("quality", String(opts.quality));
-      }
-      if (currentUser?.id) {
-        formData.append("userId", currentUser.id);
-      }
+      let result: UploadedImageMetadata;
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
+      // If file > 4.5MB, try direct Vercel Blob client upload first to bypass Vercel serverless limit
+      if (item.file.size > 4.5 * 1024 * 1024) {
+        try {
+          const blob = await vercelBlobUpload(item.file.name, item.file, {
+            access: "public",
+            handleUploadUrl: "/api/blob/upload",
+          });
 
-      const data = await res.json();
+          // Register in metadata
+          const regRes = await fetch("/api/blob/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              url: blob.url,
+              filename: item.file.name,
+              size: item.file.size,
+              mimeType: item.file.type || "image/png",
+              expiration: opts.expiration,
+              userId: currentUser?.id,
+            }),
+          });
+          const regData = await regRes.json();
+          result = regData.image;
+        } catch (blobErr: any) {
+          throw new Error(
+            `Arquivo de ${(item.file.size / 1024 / 1024).toFixed(1)}MB excede o limite serverless padrão da Vercel (4.5MB). Para uploads de até 32MB, ative o Vercel Blob no painel da Vercel (Aba Storage -> Create Blob -> Connect).`
+          );
+        }
+      } else {
+        const formData = new FormData();
+        formData.append("file", item.file);
+        formData.append("expiration", opts.expiration);
+        formData.append("outputFormat", opts.outputFormat);
+        formData.append("stripExif", String(opts.stripExif));
+        if (opts.maxDimension) {
+          formData.append("maxDimension", String(opts.maxDimension));
+        }
+        if (opts.quality) {
+          formData.append("quality", String(opts.quality));
+        }
+        if (currentUser?.id) {
+          formData.append("userId", currentUser.id);
+        }
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Erro no upload do arquivo.");
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          if (res.status === 413) {
+            throw new Error(
+              `Arquivo de ${(item.file.size / 1024 / 1024).toFixed(1)}MB excede o limite serverless da Vercel (4.5MB). Ative o Vercel Blob na aba Storage da Vercel para uploads de até 32MB.`
+            );
+          }
+          let errMsg = "Erro no upload do arquivo.";
+          try {
+            const errData = await res.json();
+            errMsg = errData.error || errMsg;
+          } catch {
+            const rawText = await res.text();
+            errMsg = rawText || errMsg;
+          }
+          throw new Error(errMsg);
+        }
+
+        const data = await res.json();
+        result = data.image;
       }
-
-      const result: UploadedImageMetadata = data.image;
 
       // Save to local history
       saveToLocalHistory(result);
