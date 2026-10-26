@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
-import { saveUploadedFile } from "@/lib/storage";
+import { registerDirectBlobUpload } from "@/lib/storage";
 import { calculateExpirationDate } from "@/lib/utils";
 import { ExpirationOption } from "@/types";
 
@@ -19,12 +19,13 @@ export async function POST(req: NextRequest) {
     const deleteToken = nanoid(24);
     const nowIso = new Date().toISOString();
     const expiresAt = calculateExpirationDate(expiration as ExpirationOption);
+    const ext = filename?.split(".").pop() || "png";
 
-    const ext = filename.split(".").pop() || "png";
-
-    const saved = await saveUploadedFile(id, Buffer.from(""), ext, {
+    const saved = registerDirectBlobUpload({
       id,
       filename: filename || "imagem",
+      storedFilename: `${id}.${ext}`,
+      url,
       size: size || 0,
       originalSize: size || 0,
       mimeType: mimeType || "image/png",
@@ -35,9 +36,6 @@ export async function POST(req: NextRequest) {
       deleteToken,
       userId,
     });
-
-    // Override url with the direct blob CDN url
-    saved.url = url;
 
     const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost:3000";
     const proto = req.headers.get("x-forwarded-proto") || (host.startsWith("localhost") ? "http" : "https");
@@ -51,11 +49,11 @@ export async function POST(req: NextRequest) {
         url,
         viewUrl: fullViewUrl,
       },
-      markdown: `![${filename}](${url})`,
-      html: `<img src="${url}" alt="${filename}" />`,
+      markdown: `![${filename || "imagem"}](${url})`,
+      html: `<img src="${url}" alt="${filename || "imagem"}" />`,
       bbcode: `[img]${url}[/img]`,
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err?.message || "Erro ao registrar upload" }, { status: 500 });
   }
 }

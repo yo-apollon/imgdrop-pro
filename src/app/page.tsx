@@ -100,7 +100,14 @@ export default function HomePage() {
               userId: currentUser?.id,
             }),
           });
-          const regData = await regRes.json();
+          const rawRegText = await regRes.text();
+          let regData: any = {};
+          try {
+            regData = JSON.parse(rawRegText);
+          } catch {}
+          if (!regRes.ok) {
+            throw new Error(regData?.error || rawRegText || "Falha ao registrar imagem no servidor.");
+          }
           result = regData.image;
         } catch (blobErr: any) {
           console.error("Direct upload error:", blobErr);
@@ -129,24 +136,23 @@ export default function HomePage() {
           body: formData,
         });
 
+        const rawText = await res.text();
+        let data: any = {};
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          // not valid json
+        }
+
         if (!res.ok) {
           if (res.status === 413) {
             throw new Error(
               `Arquivo de ${(item.file.size / 1024 / 1024).toFixed(1)}MB excede o limite serverless da Vercel (4.5MB). Ative o Vercel Blob na aba Storage da Vercel para uploads de até 32MB.`
             );
           }
-          let errMsg = "Erro no upload do arquivo.";
-          try {
-            const errData = await res.json();
-            errMsg = errData.error || errMsg;
-          } catch {
-            const rawText = await res.text();
-            errMsg = rawText || errMsg;
-          }
-          throw new Error(errMsg);
+          throw new Error(data?.error || rawText || `Erro no upload (Status ${res.status}).`);
         }
 
-        const data = await res.json();
         result = data.image;
       }
 

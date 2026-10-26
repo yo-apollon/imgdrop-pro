@@ -8,13 +8,20 @@ import {
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 
-// Directories for local fallback
-const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
-const DATA_DIR = path.join(process.cwd(), "src", "data");
+// Directories for local fallback (uses /tmp on Vercel serverless)
+const UPLOADS_DIR = process.env.VERCEL
+  ? path.join("/tmp", "uploads")
+  : path.join(process.cwd(), "public", "uploads");
+
+const DATA_DIR = process.env.VERCEL
+  ? path.join("/tmp", "data")
+  : path.join(process.cwd(), "src", "data");
+
 const METADATA_FILE = path.join(DATA_DIR, "metadata.json");
 
-// In-memory cache for metadata when running on read-only serverless
+// In-memory cache for buffers and metadata
 const memoryStore = new Map<string, UploadedImageMetadata>();
+const bufferCache = new Map<string, Buffer>();
 
 // Helper to get any available Vercel Blob token
 function getBlobToken(): string | undefined {
@@ -24,12 +31,7 @@ function getBlobToken(): string | undefined {
 
 // Detect active storage provider
 export function getActiveStorageProvider(): "vercel-blob" | "r2" | "local" {
-  if (
-    process.env.BLOB_READ_WRITE_TOKEN ||
-    process.env.BLOB_STORE_ID ||
-    process.env.VERCEL_OIDC_TOKEN ||
-    process.env.VERCEL
-  ) {
+  if (getBlobToken()) {
     return "vercel-blob";
   }
   if (
@@ -56,7 +58,7 @@ function ensureLocalDirs() {
       fs.writeFileSync(METADATA_FILE, JSON.stringify([], null, 2), "utf-8");
     }
   } catch {
-    // Ignore read-only errors in serverless environments
+    // Ignore errors
   }
 }
 
@@ -64,12 +66,10 @@ export function getAllMetadata(): UploadedImageMetadata[] {
   ensureLocalDirs();
   const list: UploadedImageMetadata[] = [];
 
-  // 1. In-memory
   for (const item of memoryStore.values()) {
     list.push(item);
   }
 
-  // 2. Disk if readable
   try {
     if (fs.existsSync(METADATA_FILE)) {
       const raw = fs.readFileSync(METADATA_FILE, "utf-8");
@@ -81,14 +81,13 @@ export function getAllMetadata(): UploadedImageMetadata[] {
       }
     }
   } catch (err) {
-    // Read-only filesystem in Vercel
+    // Ignore
   }
 
   return list;
 }
 
 export function getMetadataById(id: string): UploadedImageMetadata | null {
-  // Check memory first
   if (memoryStore.has(id)) {
     return memoryStore.get(id)!;
   }
@@ -102,21 +101,34 @@ export function getMetadataById(id: string): UploadedImageMetadata | null {
 }
 
 export function saveAllMetadata(data: UploadedImageMetadata[]) {
-  // Always update memory
   for (const item of data) {
     memoryStore.set(item.id, item);
   }
 
-  // Attempt to persist to disk if not in read-only environment
   ensureLocalDirs();
   try {
     fs.writeFileSync(METADATA_FILE, JSON.stringify(data, null, 2), "utf-8");
   } catch {
-    // Serverless read-only filesystem
+    // Ignore
   }
 }
 
-// Upload file implementation across providers
+export function getCachedBuffer(storedFilename: string): Buffer | null {
+  if (bufferCache.has(storedFilename)) {
+    return bufferCache.get(storedFilename)!;
+  }
+  ensureLocalDirs();
+  const filePath = path.join(UPLOADS_DIR, storedFilename);
+  if (fs.existsSync(filePath)) {
+    try {
+      return fs.readFileSync(filePath);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export async function saveUploadedFile(
   id: string,
   buffer: Buffer,
@@ -128,46 +140,58 @@ export async function saveUploadedFile(
   let directUrl = `/uploads/${storedFilename}`;
   const viewUrl = `/i/${id}`;
 
-  if (provider === "vercel-blob") {
-    // 1. VERCEL BLOB STORAGE (OIDC or Token)
-    const token = getBlobToken();
-    const blob = await vercelBlobPut(`uploads/${storedFilename}`, buffer, {
-      access: "public",
-      ...(token ? { token } : {}),
-      contentType: metaPartial.mimeType,
-      addRandomSuffix: false,
-    });
-    directUrl = blob.url;
-  } else if (provider === "r2") {
-    // 2. CLOUDFLARE R2 STORAGE
-    const s3 = new S3Client({
-      region: "auto",
-      endpoint: process.env.R2_ENDPOINT,
-      credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-      },
-    });
-
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET_NAME,
-        Key: `uploads/${storedFilename}`,
-        Body: buffer,
-        ContentType: metaPartial.mimeType,
-      })
-    );
-
-    const publicDomain = process.env.R2_PUBLIC_URL || `${process.env.R2_ENDPOINT}/${process.env.R2_BUCKET_NAME}`;
-    directUrl = `${publicDomain}/uploads/${storedFilename}`;
-  } else {
-    // 3. LOCAL DISK STORAGE
-    ensureLocalDirs();
+  // Always cache buffer in memory and local/tmp disk
+  bufferCache.set(storedFilename, buffer);
+  ensureLocalDirs();
+  try {
     const filePath = path.join(UPLOADS_DIR, storedFilename);
+    fs.writeFileSync(filePath, buffer);
+  } catch (e) {
+    console.warn("Could not write file to local disk:", e);
+  }
+
+  if (provider === "vercel-blob") {
     try {
-      fs.writeFileSync(filePath, buffer);
-    } catch (e) {
-      console.warn("Could not write file to local disk (likely serverless):", e);
+      const token = getBlobToken();
+      const blob = await vercelBlobPut(`uploads/${storedFilename}`, buffer, {
+        access: "public",
+        ...(token ? { token } : {}),
+        contentType: metaPartial.mimeType,
+        addRandomSuffix: false,
+      });
+      directUrl = blob.url;
+    } catch (blobErr: any) {
+      console.warn("Vercel Blob upload failed, serving via dynamic route:", blobErr?.message);
+      // Fallback: serves via /uploads/filename
+      directUrl = `/uploads/${storedFilename}`;
+    }
+  } else if (provider === "r2") {
+    try {
+      const s3 = new S3Client({
+        region: "auto",
+        endpoint: process.env.R2_ENDPOINT,
+        credentials: {
+          accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+          secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+        },
+      });
+
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: `uploads/${storedFilename}`,
+          Body: buffer,
+          ContentType: metaPartial.mimeType,
+        })
+      );
+
+      const publicDomain =
+        process.env.R2_PUBLIC_URL ||
+        `${process.env.R2_ENDPOINT}/${process.env.R2_BUCKET_NAME}`;
+      directUrl = `${publicDomain}/uploads/${storedFilename}`;
+    } catch (r2Err) {
+      console.warn("R2 upload failed, serving via dynamic route:", r2Err);
+      directUrl = `/uploads/${storedFilename}`;
     }
   }
 
@@ -188,6 +212,24 @@ export async function saveUploadedFile(
   return record;
 }
 
+export function registerDirectBlobUpload(
+  meta: Omit<UploadedImageMetadata, "viewUrl" | "storageProvider">
+): UploadedImageMetadata {
+  const record: UploadedImageMetadata = {
+    ...meta,
+    viewUrl: `/i/${meta.id}`,
+    storageProvider: "vercel-blob",
+  };
+
+  memoryStore.set(record.id, record);
+
+  const all = getAllMetadata();
+  const updated = [record, ...all.filter((x) => x.id !== record.id)];
+  saveAllMetadata(updated);
+
+  return record;
+}
+
 export async function deleteImage(id: string, deleteToken?: string): Promise<boolean> {
   const item = getMetadataById(id);
   if (!item) return false;
@@ -196,42 +238,25 @@ export async function deleteImage(id: string, deleteToken?: string): Promise<boo
     return false;
   }
 
+  bufferCache.delete(item.storedFilename);
+
   const provider = item.storageProvider || getActiveStorageProvider();
 
   if (provider === "vercel-blob" && item.url.startsWith("http")) {
     try {
-      await vercelBlobDel(item.url);
+      const token = getBlobToken();
+      await vercelBlobDel(item.url, ...(token ? [{ token }] : []));
     } catch (err) {
       console.error("Error deleting from Vercel Blob:", err);
     }
-  } else if (provider === "r2") {
+  }
+
+  const filePath = path.join(UPLOADS_DIR, item.storedFilename);
+  if (fs.existsSync(filePath)) {
     try {
-      const s3 = new S3Client({
-        region: "auto",
-        endpoint: process.env.R2_ENDPOINT,
-        credentials: {
-          accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-          secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-        },
-      });
-      await s3.send(
-        new DeleteObjectCommand({
-          Bucket: process.env.R2_BUCKET_NAME,
-          Key: `uploads/${item.storedFilename}`,
-        })
-      );
+      fs.unlinkSync(filePath);
     } catch (err) {
-      console.error("Error deleting from R2:", err);
-    }
-  } else {
-    // Local
-    const filePath = path.join(UPLOADS_DIR, item.storedFilename);
-    if (fs.existsSync(filePath)) {
-      try {
-        fs.unlinkSync(filePath);
-      } catch (err) {
-        console.error("Error deleting local file:", err);
-      }
+      // Ignore
     }
   }
 

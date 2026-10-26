@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
-import { getMetadataById, getAllMetadata } from "@/lib/storage";
+import { getCachedBuffer } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -17,13 +17,27 @@ export async function GET(
       return new NextResponse("Arquivo inválido", { status: 400 });
     }
 
-    const filePath = path.join(process.cwd(), "public", "uploads", filename);
+    let fileBuffer: Buffer | null = getCachedBuffer(filename);
 
-    if (!fs.existsSync(filePath)) {
-      return new NextResponse("Imagem não encontrada", { status: 404 });
+    if (!fileBuffer) {
+      const pathsToCheck = [
+        path.join("/tmp", "uploads", filename),
+        path.join(process.cwd(), "public", "uploads", filename),
+      ];
+
+      for (const p of pathsToCheck) {
+        if (fs.existsSync(p)) {
+          try {
+            fileBuffer = fs.readFileSync(p);
+            break;
+          } catch {}
+        }
+      }
     }
 
-    const fileBuffer = fs.readFileSync(filePath);
+    if (!fileBuffer) {
+      return new NextResponse("Imagem não encontrada", { status: 404 });
+    }
     const ext = path.extname(filename).toLowerCase().replace(".", "");
 
     let contentType = "application/octet-stream";
@@ -63,7 +77,7 @@ export async function GET(
       headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
     }
 
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(new Uint8Array(fileBuffer), {
       status: 200,
       headers,
     });
