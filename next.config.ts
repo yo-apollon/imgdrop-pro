@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  serverExternalPackages: ["sharp"],
+  serverExternalPackages: ["sharp", "@img/sharp-linux-x64"],
   experimental: {
     serverActions: {
       bodySizeLimit: "35mb",
