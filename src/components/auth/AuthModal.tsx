@@ -1,8 +1,20 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Sparkles, Mail, CheckCircle, ArrowRight, ShieldCheck } from "lucide-react";
-import { loginMockUser } from "@/lib/userStore";
+import {
+  X,
+  Sparkles,
+  Mail,
+  Lock,
+  CheckCircle,
+  ArrowRight,
+  AlertCircle,
+  User,
+  KeyRound,
+  ExternalLink,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { saveUserSession, mapSupabaseToUserAccount } from "@/lib/userStore";
 
 interface Props {
   isOpen: boolean;
@@ -11,36 +23,159 @@ interface Props {
 }
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess }: Props) {
+  const [tab, setTab] = useState<"signin" | "signup" | "magic">("signin");
   const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleOAuthLogin = (provider: "google" | "github") => {
-    setIsSubmitting(true);
-    setTimeout(() => {
-      const mockName = provider === "google" ? "Usuário Google" : "Desenvolvedor GitHub";
-      const mockEmail = provider === "google" ? "usuario@gmail.com" : "dev@github.com";
-      loginMockUser(mockEmail, mockName);
+  const supabase = createClient();
+  const isSupabaseConfigured = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+
+  const handleOAuthLogin = async (provider: "google" | "github") => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (!supabase) {
+      setErrorMessage(
+        "Supabase não configurado. Adicione NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY no painel da Vercel."
+      );
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const redirectOrigin =
+        typeof window !== "undefined" ? window.location.origin : "";
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${redirectOrigin}/auth/callback`,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+    } catch (err: any) {
+      console.error("OAuth error:", err);
+      setErrorMessage(err?.message || "Erro ao iniciar autenticação.");
       setIsSubmitting(false);
-      onLoginSuccess();
-      onClose();
-    }, 600);
+    }
   };
 
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  const handlePasswordAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    setErrorMessage(null);
+    setSuccessMessage(null);
 
-    setIsSubmitting(true);
-    setTimeout(() => {
-      const derivedName = name.trim() || email.split("@")[0];
-      loginMockUser(email.trim(), derivedName);
+    if (!supabase) {
+      setErrorMessage(
+        "Supabase não configurado. Adicione as chaves no painel da Vercel."
+      );
+      return;
+    }
+
+    if (!email.trim() || !password.trim()) {
+      setErrorMessage("Preencha e-mail e senha.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      if (tab === "signup") {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password: password.trim(),
+          options: {
+            data: {
+              full_name: fullName.trim() || email.split("@")[0],
+            },
+          },
+        });
+
+        if (error) throw error;
+
+        if (data.session?.user) {
+          const userAccount = mapSupabaseToUserAccount(data.session.user);
+          saveUserSession(userAccount);
+          onLoginSuccess();
+          onClose();
+        } else {
+          setSuccessMessage(
+            "Conta criada! Verifique seu e-mail para confirmar seu cadastro e entrar."
+          );
+        }
+      } else {
+        // Sign in
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password.trim(),
+        });
+
+        if (error) throw error;
+
+        if (data.user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", data.user.id)
+            .single();
+
+          const userAccount = mapSupabaseToUserAccount(data.user, profile);
+          saveUserSession(userAccount);
+          onLoginSuccess();
+          onClose();
+        }
+      }
+    } catch (err: any) {
+      console.error("Auth error:", err);
+      setErrorMessage(err?.message || "Falha na autenticação.");
+    } finally {
       setIsSubmitting(false);
-      onLoginSuccess();
-      onClose();
-    }, 500);
+    }
+  };
+
+  const handleMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (!supabase) {
+      setErrorMessage("Supabase não configurado.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const redirectOrigin =
+        typeof window !== "undefined" ? window.location.origin : "";
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          emailRedirectTo: `${redirectOrigin}/auth/callback`,
+        },
+      });
+
+      if (error) throw error;
+
+      setSuccessMessage(
+        "Link de acesso enviado! Verifique sua caixa de entrada para entrar com 1 clique."
+      );
+    } catch (err: any) {
+      setErrorMessage(err?.message || "Erro ao enviar magic link.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -59,28 +194,27 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: Props) {
             <Sparkles className="w-6 h-6 stroke-[2.5]" />
           </div>
           <h3 className="text-xl font-bold text-dark-text tracking-tight">
-            Criar Conta ou Entrar
+            {tab === "signup" ? "Criar Conta Real" : "Entrar na sua Conta"}
           </h3>
           <p className="text-xs text-dark-muted mt-1 max-w-xs">
-            Sincronize seu histórico de imagens na nuvem e acesse sua chave de API pessoal.
+            Gerencie suas imagens na nuvem e acesse sua chave de API REST pessoal.
           </p>
         </div>
 
-        {/* Benefits list */}
-        <div className="bg-dark-surface/80 border border-dark-border/60 rounded-2xl p-3.5 space-y-2 text-xs text-dark-muted">
-          <div className="flex items-center gap-2 text-dark-text">
-            <CheckCircle className="w-3.5 h-3.5 text-brand-emerald shrink-0" />
-            <span>Histórico persistente em qualquer dispositivo</span>
+        {/* Notice if Supabase keys not set */}
+        {!isSupabaseConfigured && (
+          <div className="p-3 rounded-2xl bg-brand-cyan/10 border border-brand-cyan/30 text-xs text-brand-cyan flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">Supabase Auth Pronto para Conectar</p>
+              <p className="text-[11px] text-dark-muted mt-0.5">
+                Para ativar logins reais via Google, GitHub e E-mail, adicione as chaves{" "}
+                <code className="text-brand-cyan">NEXT_PUBLIC_SUPABASE_URL</code> e{" "}
+                <code className="text-brand-cyan">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> nas Environment Variables da Vercel.
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-dark-text">
-            <CheckCircle className="w-3.5 h-3.5 text-brand-emerald shrink-0" />
-            <span>Chave de API REST gratuita para bots e scripts</span>
-          </div>
-          <div className="flex items-center gap-2 text-dark-text">
-            <CheckCircle className="w-3.5 h-3.5 text-brand-emerald shrink-0" />
-            <span>Gerenciamento e exclusão fácil das suas imagens</span>
-          </div>
-        </div>
+        )}
 
         {/* Social login buttons */}
         <div className="flex flex-col gap-2.5">
@@ -88,7 +222,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: Props) {
             type="button"
             onClick={() => handleOAuthLogin("google")}
             disabled={isSubmitting}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-dark-surface hover:bg-dark-hover border border-dark-border text-dark-text text-xs font-semibold transition-all"
+            className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl bg-dark-surface hover:bg-dark-hover border border-dark-border text-dark-text text-xs font-semibold transition-all disabled:opacity-50"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path
@@ -115,7 +249,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: Props) {
             type="button"
             onClick={() => handleOAuthLogin("github")}
             disabled={isSubmitting}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-dark-surface hover:bg-dark-hover border border-dark-border text-dark-text text-xs font-semibold transition-all"
+            className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl bg-dark-surface hover:bg-dark-hover border border-dark-border text-dark-text text-xs font-semibold transition-all disabled:opacity-50"
           >
             <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
               <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
@@ -130,38 +264,143 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: Props) {
           <div className="flex-1 h-px bg-dark-border" />
         </div>
 
-        {/* Form email */}
-        <form onSubmit={handleEmailSubmit} className="flex flex-col gap-3">
-          <input
-            type="text"
-            placeholder="Seu Nome (opcional)"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full bg-dark-surface border border-dark-border rounded-xl px-3.5 py-2 text-xs text-dark-text placeholder:text-dark-dimmed focus:outline-none focus:border-brand-emerald"
-          />
-
-          <input
-            type="email"
-            placeholder="seuemail@exemplo.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full bg-dark-surface border border-dark-border rounded-xl px-3.5 py-2 text-xs text-dark-text placeholder:text-dark-dimmed focus:outline-none focus:border-brand-emerald"
-          />
-
+        {/* Auth Tabs */}
+        <div className="flex bg-dark-surface p-1 rounded-xl border border-dark-border text-xs">
           <button
-            type="submit"
-            disabled={isSubmitting || !email.trim()}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-brand-emerald hover:bg-brand-emeraldLight disabled:opacity-50 text-dark-bg text-xs font-semibold transition-all shadow-md mt-1"
+            type="button"
+            onClick={() => {
+              setTab("signin");
+              setErrorMessage(null);
+              setSuccessMessage(null);
+            }}
+            className={`flex-1 py-1.5 rounded-lg font-medium transition-all ${
+              tab === "signin"
+                ? "bg-dark-card text-brand-emerald shadow-sm"
+                : "text-dark-muted hover:text-dark-text"
+            }`}
           >
-            <span>Entrar com E-mail</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            Entrar
           </button>
-        </form>
+          <button
+            type="button"
+            onClick={() => {
+              setTab("signup");
+              setErrorMessage(null);
+              setSuccessMessage(null);
+            }}
+            className={`flex-1 py-1.5 rounded-lg font-medium transition-all ${
+              tab === "signup"
+                ? "bg-dark-card text-brand-emerald shadow-sm"
+                : "text-dark-muted hover:text-dark-text"
+            }`}
+          >
+            Cadastrar
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTab("magic");
+              setErrorMessage(null);
+              setSuccessMessage(null);
+            }}
+            className={`flex-1 py-1.5 rounded-lg font-medium transition-all ${
+              tab === "magic"
+                ? "bg-dark-card text-brand-emerald shadow-sm"
+                : "text-dark-muted hover:text-dark-text"
+            }`}
+          >
+            Link Mágico
+          </button>
+        </div>
 
-        <p className="text-[10px] text-center text-dark-dimmed">
-          Ao continuar, você concorda com os termos de uso e política de privacidade.
-        </p>
+        {/* Error / Success alerts */}
+        {errorMessage && (
+          <div className="p-3 rounded-xl bg-brand-rose/10 border border-brand-rose/30 text-xs text-brand-rose">
+            {errorMessage}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="p-3 rounded-xl bg-brand-emerald/10 border border-brand-emerald/30 text-xs text-brand-emerald">
+            {successMessage}
+          </div>
+        )}
+
+        {/* Form depending on tab */}
+        {tab === "magic" ? (
+          <form onSubmit={handleMagicLink} className="flex flex-col gap-3">
+            <input
+              type="email"
+              placeholder="seuemail@exemplo.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full bg-dark-surface border border-dark-border rounded-xl px-3.5 py-2.5 text-xs text-dark-text placeholder:text-dark-dimmed focus:outline-none focus:border-brand-emerald"
+            />
+            <button
+              type="submit"
+              disabled={isSubmitting || !email.trim()}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-brand-emerald hover:bg-brand-emeraldLight disabled:opacity-50 text-dark-bg text-xs font-semibold transition-all shadow-md mt-1"
+            >
+              <span>{isSubmitting ? "Enviando..." : "Receber Link de Acesso"}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handlePasswordAuth} className="flex flex-col gap-3">
+            {tab === "signup" && (
+              <input
+                type="text"
+                placeholder="Seu Nome Completo"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full bg-dark-surface border border-dark-border rounded-xl px-3.5 py-2 text-xs text-dark-text placeholder:text-dark-dimmed focus:outline-none focus:border-brand-emerald"
+              />
+            )}
+
+            <input
+              type="email"
+              placeholder="seuemail@exemplo.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full bg-dark-surface border border-dark-border rounded-xl px-3.5 py-2 text-xs text-dark-text placeholder:text-dark-dimmed focus:outline-none focus:border-brand-emerald"
+            />
+
+            <input
+              type="password"
+              placeholder="Sua Senha (mínimo 6 caracteres)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              className="w-full bg-dark-surface border border-dark-border rounded-xl px-3.5 py-2 text-xs text-dark-text placeholder:text-dark-dimmed focus:outline-none focus:border-brand-emerald"
+            />
+
+            <button
+              type="submit"
+              disabled={isSubmitting || !email.trim() || !password.trim()}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-brand-emerald hover:bg-brand-emeraldLight disabled:opacity-50 text-dark-bg text-xs font-semibold transition-all shadow-md mt-1"
+            >
+              <span>
+                {isSubmitting
+                  ? "Carregando..."
+                  : tab === "signup"
+                  ? "Criar Conta Segura"
+                  : "Entrar com Senha"}
+              </span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </form>
+        )}
+
+        <div className="bg-dark-surface/60 border border-dark-border/40 rounded-xl p-2.5 flex items-center justify-between text-[11px] text-dark-muted">
+          <span className="flex items-center gap-1.5">
+            <CheckCircle className="w-3.5 h-3.5 text-brand-emerald" />
+            PostgreSQL & Criptografia Supabase
+          </span>
+          <span className="font-mono text-brand-emerald">v2.0 Real Auth</span>
+        </div>
       </div>
     </div>
   );

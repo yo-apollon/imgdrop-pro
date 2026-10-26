@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Link2, History, Sparkles, Code2, Layers, User, Zap } from "lucide-react";
 import { getLocalHistory } from "@/lib/historyStore";
-import { getCurrentUser } from "@/lib/userStore";
+import { getCurrentUser, syncSupabaseSession } from "@/lib/userStore";
 import { UserAccount } from "@/types";
 
 interface Props {
@@ -34,6 +34,10 @@ export default function Header({
     };
 
     update();
+    syncSupabaseSession().then((user) => {
+      if (user) setCurrentUser(user);
+    });
+
     window.addEventListener("local-history-updated", update);
     window.addEventListener("user-auth-changed", update);
 

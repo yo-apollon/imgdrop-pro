@@ -44,15 +44,15 @@ export default function UserProfileModal({
     }
   };
 
-  const handleRegenerate = () => {
+  const handleRegenerate = async () => {
     if (confirm("Deseja realmente regerar sua chave de API? A chave antiga parará de funcionar.")) {
-      const newKey = regenerateApiKey();
+      const newKey = await regenerateApiKey();
       setApiKey(newKey);
     }
   };
 
-  const handleLogout = () => {
-    logoutUser();
+  const handleLogout = async () => {
+    await logoutUser();
     onClose();
   };
 
