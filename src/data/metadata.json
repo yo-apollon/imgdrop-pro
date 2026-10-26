@@ -1,0 +1,49 @@
+[
+  {
+    "id": "yWSw00Iq",
+    "filename": "exploit.svg",
+    "size": 173,
+    "originalSize": 236,
+    "mimeType": "image/svg+xml",
+    "width": 100,
+    "height": 100,
+    "createdAt": "2026-10-26T17:15:49.106Z",
+    "expiresAt": "2026-10-26T18:15:49.106Z",
+    "deleteToken": "JA4tt3Wt7L47OQBp84xbqJBI",
+    "storedFilename": "yWSw00Iq.svg",
+    "url": "/uploads/yWSw00Iq.svg",
+    "viewUrl": "/i/yWSw00Iq",
+    "storageProvider": "local"
+  },
+  {
+    "id": "hl_Wf9lQ",
+    "filename": "exploit.svg",
+    "size": 173,
+    "originalSize": 236,
+    "mimeType": "image/svg+xml",
+    "width": 100,
+    "height": 100,
+    "createdAt": "2026-10-26T17:15:07.769Z",
+    "expiresAt": "2026-10-26T18:15:07.769Z",
+    "deleteToken": "9ofqxGal1uD3ql8qp9AtAbR2",
+    "storedFilename": "hl_Wf9lQ.svg",
+    "url": "/uploads/hl_Wf9lQ.svg",
+    "viewUrl": "/i/hl_Wf9lQ",
+    "storageProvider": "local"
+  },
+  {
+    "id": "uFP-498z",
+    "filename": "7adfdd68fba7db3c2aa2300e6816fdac.gif",
+    "size": 1245598,
+    "originalSize": 1304762,
+    "mimeType": "image/gif",
+    "width": 576,
+    "height": 69696,
+    "createdAt": "2026-10-26T17:01:14.411Z",
+    "expiresAt": null,
+    "deleteToken": "ICI2gMtQFV4oC9NpBqH6AlVi",
+    "storedFilename": "uFP-498z.gif",
+    "url": "/uploads/uFP-498z.gif",
+    "viewUrl": "/i/uFP-498z"
+  }
+]
