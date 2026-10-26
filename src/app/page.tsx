@@ -111,6 +111,12 @@ export default function HomePage() {
           result = regData.image;
         } catch (blobErr: any) {
           console.error("Direct upload error:", blobErr);
+          const rawMsg = blobErr?.message || "";
+          if (rawMsg.toLowerCase().includes("client token") || rawMsg.toLowerCase().includes("failed to retrieve")) {
+            throw new Error(
+              "Vercel Blob não conectado. No painel da Vercel, acesse Storage -> imgdrop-pro-blob -> Connect Project -> selecione imgdrop-pro."
+            );
+          }
           throw new Error(
             blobErr?.message || `Falha no upload direto: ${(item.file.size / 1024 / 1024).toFixed(1)}MB.`
           );
