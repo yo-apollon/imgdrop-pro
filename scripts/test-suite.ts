@@ -147,6 +147,34 @@ async function main() {
     throw new Error(`Resposta inesperada: ${JSON.stringify(data)}`);
   });
 
+  // 8. Teste de Monitoramento & Health Check (/api/health)
+  await runTest("Health Check & Monitoramento (/api/health)", async () => {
+    const res = await fetch(`${BASE_URL}/api/health`);
+    if (!res.ok) throw new Error(`Health check retornou status ${res.status}`);
+    const data = await res.json();
+    if (data.status !== "healthy") throw new Error(`Status de saúde inválido: ${data.status}`);
+    return `Sistemas Operacionais: ${data.status} | Latência: ${data.latencyMs}ms | Vercel Blob: ${data.checks.vercelBlob ? "Ativo" : "Inativo"}`;
+  });
+
+  // 9. Teste de Registro de Feedback & Relatos (/api/feedback)
+  await runTest("Central de Relatos e Feedback (/api/feedback)", async () => {
+    const res = await fetch(`${BASE_URL}/api/feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "support",
+        title: "Teste Automatizado E2E",
+        description: "Verificação de sanidade da central de atendimento e feedback.",
+        email: "teste@imgdrop.pro",
+        metadata: { browser: "TestRunner", os: "CI/CD" },
+      }),
+    });
+    if (!res.ok) throw new Error(`Feedback endpoint falhou (${res.status})`);
+    const data = await res.json();
+    if (!data.success) throw new Error(`Falha no registro: ${JSON.stringify(data)}`);
+    return `Endpoint validado com sucesso: ${data.message}`;
+  });
+
   console.log(`\n======================================================`);
   console.log(`📊 RESULTADO FINAL DA BATERIA DE TESTES`);
   console.log(`======================================================`);

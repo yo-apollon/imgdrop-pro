@@ -1,7 +1,11 @@
 import React from "react";
 import { ShieldCheck, Zap, Lock, Globe2 } from "lucide-react";
 
-export default function Footer() {
+interface Props {
+  onOpenFeedback?: () => void;
+}
+
+export default function Footer({ onOpenFeedback }: Props) {
   const formats = ["PNG", "JPG", "WEBP", "GIF", "AVIF", "SVG", "BMP", "ICO"];
 
   return (
@@ -46,7 +50,7 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Formats banner */}
+        {/* Formats banner and Links */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="text-dark-dimmed text-[11px] font-medium uppercase tracking-wider">
@@ -64,8 +68,28 @@ export default function Footer() {
             </div>
           </div>
 
-          <div className="text-dark-dimmed text-[11px] flex items-center gap-4">
-            <span>© {new Date().getFullYear()} ImgDrop Pro. Todos os direitos reservados.</span>
+          <div className="text-dark-dimmed text-[11px] flex flex-wrap items-center gap-4">
+            <a
+              href="/api/health"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-brand-emerald flex items-center gap-1 transition-colors"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-emerald animate-pulse" />
+              <span>Status dos Sistemas</span>
+            </a>
+
+            {onOpenFeedback && (
+              <button
+                type="button"
+                onClick={onOpenFeedback}
+                className="hover:text-brand-emerald transition-colors underline"
+              >
+                Reportar Problema / Feedback
+              </button>
+            )}
+
+            <span>© {new Date().getFullYear()} ImgDrop Pro.</span>
             <span className="text-brand-emerald font-medium">100% Livre de Anúncios</span>
           </div>
         </div>

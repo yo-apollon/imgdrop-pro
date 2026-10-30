@@ -13,11 +13,12 @@ import ApiDocs from "@/components/api/ApiDocs";
 import AuthModal from "@/components/auth/AuthModal";
 import UserProfileModal from "@/components/auth/UserProfileModal";
 import PricingModal from "@/components/monetization/PricingModal";
+import FeedbackModal from "@/components/feedback/FeedbackModal";
 import { UploadOptions, UploadQueueItem, UploadedImageMetadata, UserAccount } from "@/types";
 import { saveToLocalHistory } from "@/lib/historyStore";
 import { getCurrentUser, upgradeUserToPro, syncSupabaseSession } from "@/lib/userStore";
 import { nanoid } from "nanoid";
-import { CheckCircle2, Sparkles, X } from "lucide-react";
+import { CheckCircle2, Sparkles, X, MessageSquarePlus } from "lucide-react";
 import { upload as vercelBlobUpload } from "@vercel/blob/client";
 
 export default function HomePage() {
@@ -27,6 +28,7 @@ export default function HomePage() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [showProSuccessBanner, setShowProSuccessBanner] = useState(false);
@@ -441,8 +443,26 @@ export default function HomePage() {
         }}
       />
 
+      {/* User Bug Reporting & Feedback Modal */}
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+      />
+
+      {/* Floating Feedback & Help Button */}
+      <button
+        type="button"
+        onClick={() => setIsFeedbackModalOpen(true)}
+        className="fixed bottom-5 right-5 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-dark-card/95 hover:bg-dark-surface border border-dark-border hover:border-brand-emerald/50 text-dark-text hover:text-brand-emerald shadow-2xl backdrop-blur-md transition-all group scale-100 hover:scale-105"
+        title="Reportar problema ou enviar sugestão"
+      >
+        <div className="w-2 h-2 rounded-full bg-brand-emerald animate-pulse" />
+        <MessageSquarePlus className="w-4 h-4 text-brand-emerald" />
+        <span className="text-xs font-semibold hidden sm:inline">Ajuda / Feedback</span>
+      </button>
+
       {/* Footer */}
-      <Footer />
+      <Footer onOpenFeedback={() => setIsFeedbackModalOpen(true)} />
     </div>
   );
 }
