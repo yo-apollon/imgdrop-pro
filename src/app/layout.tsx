@@ -36,6 +36,9 @@ export const metadata: Metadata = {
     "free image hosting",
   ],
   authors: [{ name: "ImgDrop Pro" }],
+  verification: {
+    google: "aba5c6d8d6e30aad",
+  },
 };
 
 export default function RootLayout({
