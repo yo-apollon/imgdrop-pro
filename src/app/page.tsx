@@ -17,6 +17,7 @@ import FeedbackModal from "@/components/feedback/FeedbackModal";
 import { UploadOptions, UploadQueueItem, UploadedImageMetadata, UserAccount } from "@/types";
 import { saveToLocalHistory } from "@/lib/historyStore";
 import { getCurrentUser, upgradeUserToPro, syncSupabaseSession } from "@/lib/userStore";
+import { compressImageClient } from "@/lib/clientImageTools";
 import { nanoid } from "nanoid";
 import { CheckCircle2, Sparkles, X, MessageSquarePlus } from "lucide-react";
 import { upload as vercelBlobUpload } from "@vercel/blob/client";
@@ -90,16 +91,58 @@ export default function HomePage() {
     if (!item.file) return;
 
     setQueue((prev) =>
-      prev.map((x) => (x.id === item.id ? { ...x, status: "uploading", progress: 25 } : x))
+      prev.map((x) => (x.id === item.id ? { ...x, status: "uploading", progress: 20 } : x))
     );
 
     try {
+      let fileToUpload = item.file;
+      let targetName = item.file.name;
+      let targetMime = item.file.type || "image/png";
+
+      // 1. Client-Side instant format conversion & optimization
+      if (opts.outputFormat && opts.outputFormat !== "original" && !item.file.type.includes("svg")) {
+        try {
+          setQueue((prev) =>
+            prev.map((x) =>
+              x.id === item.id ? { ...x, progress: 35 } : x
+            )
+          );
+
+          const clientConv = await compressImageClient(item.file, {
+            quality: opts.quality || 85,
+            format: opts.outputFormat as "webp" | "jpeg" | "png" | "avif",
+            maxDimension: opts.maxDimension,
+          });
+
+          const ext = opts.outputFormat === "jpeg" ? "jpg" : opts.outputFormat;
+          const baseName = item.file.name.substring(0, item.file.name.lastIndexOf(".")) || item.file.name;
+          targetName = `${baseName}.${ext}`;
+          targetMime = clientConv.blob.type || `image/${opts.outputFormat}`;
+          fileToUpload = new File([clientConv.blob], targetName, { type: targetMime });
+
+          // Update preview and name in queue
+          setQueue((prev) =>
+            prev.map((x) =>
+              x.id === item.id
+                ? { ...x, name: targetName, size: fileToUpload.size, previewUrl: clientConv.blobUrl }
+                : x
+            )
+          );
+        } catch (clientErr) {
+          console.warn("Client pre-conversion skipped, falling back to server sharp:", clientErr);
+        }
+      }
+
+      setQueue((prev) =>
+        prev.map((x) => (x.id === item.id ? { ...x, progress: 60 } : x))
+      );
+
       let result: UploadedImageMetadata;
 
-      // If file > 4.5MB, try direct Vercel Blob client upload first to bypass Vercel serverless limit
-      if (item.file.size > 4.5 * 1024 * 1024) {
+      // 2. Upload: If file > 4.5MB (even after conversion), use direct Vercel Blob client upload
+      if (fileToUpload.size > 4.5 * 1024 * 1024) {
         try {
-          const blob = await vercelBlobUpload(item.file.name, item.file, {
+          const blob = await vercelBlobUpload(targetName, fileToUpload, {
             access: "public",
             handleUploadUrl: "/api/blob/upload",
           });
@@ -110,9 +153,9 @@ export default function HomePage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               url: blob.url,
-              filename: item.file.name,
-              size: item.file.size,
-              mimeType: item.file.type || "image/png",
+              filename: targetName,
+              size: fileToUpload.size,
+              mimeType: targetMime,
               expiration: opts.expiration,
               userId: currentUser?.id,
             }),
@@ -135,12 +178,12 @@ export default function HomePage() {
             );
           }
           throw new Error(
-            blobErr?.message || `Falha no upload direto: ${(item.file.size / 1024 / 1024).toFixed(1)}MB.`
+            blobErr?.message || `Falha no upload direto: ${(fileToUpload.size / 1024 / 1024).toFixed(1)}MB.`
           );
         }
       } else {
         const formData = new FormData();
-        formData.append("file", item.file);
+        formData.append("file", fileToUpload);
         formData.append("expiration", opts.expiration);
         formData.append("outputFormat", opts.outputFormat);
         formData.append("stripExif", String(opts.stripExif));
@@ -170,7 +213,7 @@ export default function HomePage() {
         if (!res.ok) {
           if (res.status === 413) {
             throw new Error(
-              `Arquivo de ${(item.file.size / 1024 / 1024).toFixed(1)}MB excede o limite serverless da Vercel (4.5MB). Ative o Vercel Blob na aba Storage da Vercel para uploads de até 32MB.`
+              `Arquivo de ${(fileToUpload.size / 1024 / 1024).toFixed(1)}MB excede o limite serverless da Vercel (4.5MB). Ative o Vercel Blob na aba Storage da Vercel para uploads de até 32MB.`
             );
           }
           throw new Error(data?.error || rawText || `Erro no upload (Status ${res.status}).`);
@@ -375,15 +418,16 @@ export default function HomePage() {
               </div>
             </div>
 
+            {/* Options Bar */}
+            <UploadOptionsBar options={options} onChange={setOptions} />
+
             {/* Drop Zone */}
             <DropZone
               onFilesSelected={handleFilesSelected}
               onOpenUrlModal={() => setIsUrlModalOpen(true)}
               isUploading={isUploading}
+              activeFormat={options.outputFormat}
             />
-
-            {/* Options Bar */}
-            <UploadOptionsBar options={options} onChange={setOptions} />
 
             {/* Upload Queue / Results */}
             <UploadQueue

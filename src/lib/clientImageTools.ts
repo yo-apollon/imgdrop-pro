@@ -62,11 +62,21 @@ export async function compressImageClient(
   file: File | Blob,
   options: {
     quality: number; // 1 to 100
-    format: "webp" | "jpeg" | "png" | "avif";
+    format: "webp" | "jpeg" | "png" | "avif" | "original";
     maxDimension?: number;
   }
 ): Promise<CompressionResult> {
   return new Promise((resolve, reject) => {
+    let resolvedFormat: "webp" | "jpeg" | "png" | "avif" = "webp";
+    if (options.format === "original") {
+      if (file.type.includes("jpeg") || file.type.includes("jpg")) resolvedFormat = "jpeg";
+      else if (file.type.includes("png")) resolvedFormat = "png";
+      else if (file.type.includes("avif")) resolvedFormat = "avif";
+      else resolvedFormat = "webp";
+    } else {
+      resolvedFormat = options.format;
+    }
+
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
 
@@ -97,7 +107,7 @@ export async function compressImageClient(
       }
 
       // If converting to JPEG, fill canvas with white background to handle transparent PNGs cleanly
-      if (options.format === "jpeg") {
+      if (resolvedFormat === "jpeg") {
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, targetWidth, targetHeight);
       }
@@ -107,13 +117,13 @@ export async function compressImageClient(
       ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
       let targetMime = "image/webp";
-      if (options.format === "jpeg") targetMime = "image/jpeg";
-      else if (options.format === "png") targetMime = "image/png";
-      else if (options.format === "avif") {
+      if (resolvedFormat === "jpeg") targetMime = "image/jpeg";
+      else if (resolvedFormat === "png") targetMime = "image/png";
+      else if (resolvedFormat === "avif") {
         targetMime = isFormatSupported("image/avif") ? "image/avif" : "image/webp";
       }
 
-      const q = options.format === "png" ? undefined : Math.max(0.05, Math.min(1, options.quality / 100));
+      const q = resolvedFormat === "png" ? undefined : Math.max(0.05, Math.min(1, options.quality / 100));
 
       canvas.toBlob(
         (blob) => {
@@ -128,7 +138,7 @@ export async function compressImageClient(
             size: blob.size,
             width: targetWidth,
             height: targetHeight,
-            format: options.format,
+            format: resolvedFormat,
           });
         },
         targetMime,

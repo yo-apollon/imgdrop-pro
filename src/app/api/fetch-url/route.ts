@@ -117,11 +117,13 @@ export async function POST(req: NextRequest) {
     const parsedUrl = new URL(url);
     const pathname = parsedUrl.pathname;
     const rawFilename = pathname.substring(pathname.lastIndexOf("/") + 1) || "imported_image";
-    const filename = rawFilename.split("?")[0] || "imported_image";
+    const cleanFilename = rawFilename.split("?")[0] || "imported_image";
+    const baseFilename = cleanFilename.substring(0, cleanFilename.lastIndexOf(".")) || cleanFilename;
+    const finalFilename = `${baseFilename}.${processed.extension}`;
 
     const saved = await saveUploadedFile(id, processed.buffer, processed.extension, {
       id,
-      filename,
+      filename: finalFilename,
       size: processed.size,
       originalSize: inputBuffer.length,
       mimeType: processed.mimeType,
@@ -149,8 +151,8 @@ export async function POST(req: NextRequest) {
           viewUrl: fullViewUrl,
           relativeUrl: saved.url,
         },
-        markdown: `![${filename}](${fullUrl})`,
-        html: `<img src="${fullUrl}" alt="${filename}" />`,
+        markdown: `![${finalFilename}](${fullUrl})`,
+        html: `<img src="${fullUrl}" alt="${finalFilename}" />`,
         bbcode: `[img]${fullUrl}[/img]`,
       },
       {

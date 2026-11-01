@@ -215,6 +215,9 @@ export async function processImage(
         targetExt = "avif";
         break;
       case "jpeg":
+        if (initialMeta.hasAlpha) {
+          image = image.flatten({ background: "#ffffff" });
+        }
         image = image.jpeg({ quality, mozjpeg: true });
         targetMime = "image/jpeg";
         targetExt = "jpg";
@@ -242,7 +245,26 @@ export async function processImage(
       size: outputBuffer.length,
     };
   } catch (err) {
-    console.warn("Sharp processing error, falling back to original buffer:", err);
+    console.warn("Sharp processing primary attempt failed, retrying simple conversion:", err);
+    try {
+      let simple = sharp(inputBuffer);
+      if (options.maxDimension) {
+        simple = simple.resize({ width: options.maxDimension, height: options.maxDimension, fit: "inside", withoutEnlargement: true });
+      }
+      if (options.outputFormat === "webp") {
+        const buf = await simple.webp({ quality: options.quality || 85 }).toBuffer();
+        return { buffer: buf, mimeType: "image/webp", extension: "webp", width: 800, height: 600, size: buf.length };
+      }
+      if (options.outputFormat === "jpeg") {
+        const buf = await simple.flatten({ background: "#ffffff" }).jpeg({ quality: options.quality || 85 }).toBuffer();
+        return { buffer: buf, mimeType: "image/jpeg", extension: "jpg", width: 800, height: 600, size: buf.length };
+      }
+      if (options.outputFormat === "png") {
+        const buf = await simple.png().toBuffer();
+        return { buffer: buf, mimeType: "image/png", extension: "png", width: 800, height: 600, size: buf.length };
+      }
+    } catch {}
+
     const sniffed = sniffImageFormat(inputBuffer);
     return {
       buffer: inputBuffer,

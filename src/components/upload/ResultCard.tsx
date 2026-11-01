@@ -31,6 +31,24 @@ export default function ResultCard({ image, onDelete }: Props) {
   const [showQr, setShowQr] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(image.url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = image.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      window.open(image.url, "_blank");
+    }
+  };
+
   // Compute savings if original was larger
   const savedBytes = image.originalSize - image.size;
   const savingsPercent =
@@ -85,9 +103,14 @@ export default function ResultCard({ image, onDelete }: Props) {
           </div>
 
           <div className="min-w-0 flex flex-col">
-            <h4 className="text-sm font-semibold text-dark-text truncate" title={image.filename}>
-              {image.filename}
-            </h4>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-semibold text-dark-text truncate" title={image.filename}>
+                {image.filename}
+              </h4>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-brand-emerald/15 text-brand-emerald border border-brand-emerald/30 shrink-0">
+                {image.mimeType.replace("image/", "").replace("+xml", "").toUpperCase()}
+              </span>
+            </div>
             <div className="flex items-center gap-2 text-[11px] text-dark-muted font-mono">
               <span>{formatBytes(image.size)}</span>
               <span>•</span>
@@ -130,14 +153,14 @@ export default function ResultCard({ image, onDelete }: Props) {
             <Eye className="w-4 h-4" />
           </a>
 
-          <a
-            href={image.url}
-            download={image.filename}
+          <button
+            type="button"
+            onClick={handleDownload}
             className="p-2 rounded-lg bg-dark-surface border border-dark-border hover:bg-dark-hover text-dark-muted hover:text-dark-text transition-colors"
-            title="Baixar imagem"
+            title={`Baixar ${image.filename}`}
           >
             <Download className="w-4 h-4" />
-          </a>
+          </button>
 
           {onDelete && (
             <button

@@ -170,6 +170,7 @@ export default function ToolsSuite() {
       const formData = new FormData();
       formData.append("file", uploadFile);
       formData.append("expiration", "never");
+      formData.append("outputFormat", targetCompressFormat);
 
       const res = await fetch("/api/upload", {
         method: "POST",
@@ -680,6 +681,25 @@ export default function ToolsSuite() {
                   <a
                     href={convertedUrl}
                     download={`convertida.${convertTargetFormat === "jpeg" ? "jpg" : convertTargetFormat}`}
+                    onClick={async (e) => {
+                      if (convertedUrl.startsWith("http")) {
+                        e.preventDefault();
+                        try {
+                          const r = await fetch(convertedUrl);
+                          const b = await r.blob();
+                          const u = URL.createObjectURL(b);
+                          const a = document.createElement("a");
+                          a.href = u;
+                          a.download = `convertida.${convertTargetFormat === "jpeg" ? "jpg" : convertTargetFormat}`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(u);
+                        } catch {
+                          window.open(convertedUrl, "_blank");
+                        }
+                      }
+                    }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-emerald hover:bg-brand-emeraldLight text-dark-bg font-semibold text-xs shadow-sm transition-colors"
                   >
                     <Download className="w-3.5 h-3.5" />

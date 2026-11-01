@@ -7,9 +7,10 @@ interface Props {
   onFilesSelected: (files: File[]) => void;
   onOpenUrlModal: () => void;
   isUploading: boolean;
+  activeFormat?: string;
 }
 
-export default function DropZone({ onFilesSelected, onOpenUrlModal, isUploading }: Props) {
+export default function DropZone({ onFilesSelected, onOpenUrlModal, isUploading, activeFormat = "original" }: Props) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isWindowDragOver, setIsWindowDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -171,9 +172,20 @@ export default function DropZone({ onFilesSelected, onOpenUrlModal, isUploading 
         <h3 className="text-lg sm:text-xl font-bold text-dark-text tracking-tight mb-2">
           Arraste e solte suas imagens aqui
         </h3>
-        <p className="text-xs sm:text-sm text-dark-muted max-w-md mb-6">
+        <p className="text-xs sm:text-sm text-dark-muted max-w-md mb-3">
           Ou clique para navegar no seu dispositivo. Suporta envio em lote, fotos de câmera e captura de tela.
         </p>
+
+        {/* Active Format Indicator */}
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-dark-surface/90 border border-dark-border text-[11px] font-mono text-dark-muted mb-5">
+          <span className="w-1.5 h-1.5 rounded-full bg-brand-emerald animate-pulse" />
+          <span>
+            Formato de saída:{" "}
+            <strong className="text-brand-cyan uppercase">
+              {activeFormat === "original" ? "Original (Sem alteração)" : activeFormat}
+            </strong>
+          </span>
+        </div>
 
         {/* CTA Buttons */}
         <div

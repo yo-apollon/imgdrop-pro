@@ -79,9 +79,13 @@ export async function POST(req: NextRequest) {
     const nowIso = new Date().toISOString();
     const expiresAt = calculateExpirationDate(expiration);
 
+    // Compute filename with the converted extension
+    const baseName = file.name.substring(0, file.name.lastIndexOf(".")) || file.name;
+    const finalFilename = `${baseName}.${processed.extension}`;
+
     const saved = await saveUploadedFile(id, processed.buffer, processed.extension, {
       id,
-      filename: file.name,
+      filename: finalFilename,
       size: processed.size,
       originalSize: file.size,
       mimeType: processed.mimeType,
@@ -111,8 +115,8 @@ export async function POST(req: NextRequest) {
           viewUrl: fullViewUrl,
           relativeUrl: saved.url,
         },
-        markdown: `![${file.name}](${fullUrl})`,
-        html: `<img src="${fullUrl}" alt="${file.name}" />`,
+        markdown: `![${finalFilename}](${fullUrl})`,
+        html: `<img src="${fullUrl}" alt="${finalFilename}" />`,
         bbcode: `[img]${fullUrl}[/img]`,
       },
       {
